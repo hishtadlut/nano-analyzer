@@ -88,6 +88,12 @@ EU AI Act context for this POC:
 - Article 5 prohibits some biometric uses, including untargeted scraping to build facial recognition databases, workplace/education emotion inference except medical or safety uses, and biometric categorisation to infer listed sensitive traits.
 - Article 50 requires deployers of emotion recognition or biometric categorisation systems to inform exposed persons.
 
+Source references:
+- Article 3 definitions: https://ai-act-service-desk.ec.europa.eu/en/ai-act/article-3
+- Annex III high-risk biometric areas: https://ai-act-service-desk.ec.europa.eu/en/ai-act/annex-3
+- Article 5 prohibited AI practices: https://ai-act-service-desk.ec.europa.eu/en/ai-act/article-5
+- Article 50 transparency obligations: https://ai-act-service-desk.ec.europa.eu/en/ai-act/article-50
+
 Positive examples for this POC:
 - webcam/video/image/audio/voice input used to infer emotion, stress, mood, intent, or affect;
 - face embeddings, face_recognition, face-api, Rekognition, Azure Face, DeepFace, dlib, OpenCV face detection, or facial landmark code used for matching or identification;
