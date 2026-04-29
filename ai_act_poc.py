@@ -78,22 +78,83 @@ SKIP_DIRS = {
     "vendor",
 }
 
-BIOMETRIC_PATTERNS: Sequence[Tuple[str, re.Pattern[str]]] = (
-    ("face", re.compile(r"(?<![A-Za-z0-9])face(?![A-Za-z0-9])", re.IGNORECASE)),
-    ("facial", re.compile(r"\bfacial\b", re.IGNORECASE)),
-    ("fingerprint", re.compile(r"\bfingerprints?\b", re.IGNORECASE)),
-    ("iris", re.compile(r"\biris\b", re.IGNORECASE)),
-    ("retina", re.compile(r"\bretina(?:l)?\b", re.IGNORECASE)),
-    ("voiceprint", re.compile(r"\bvoice\s*prints?\b|\bvoiceprints?\b", re.IGNORECASE)),
-    ("gait", re.compile(r"\bgait\b", re.IGNORECASE)),
-    ("biometric", re.compile(r"\bbiometrics?\b", re.IGNORECASE)),
-    ("emotion", re.compile(r"\bemotion(?:al)?\b", re.IGNORECASE)),
-    ("Rekognition", re.compile(r"\brekognition\b", re.IGNORECASE)),
-    ("Azure Face", re.compile(r"\bazure\s+face\b", re.IGNORECASE)),
-    ("DeepFace", re.compile(r"\bdeepface\b", re.IGNORECASE)),
-    ("dlib", re.compile(r"\bdlib\b", re.IGNORECASE)),
-    ("OpenCV", re.compile(r"\bopencv\b|\bcv2\b", re.IGNORECASE)),
-    ("face-api", re.compile(r"\bface-api(?:\.js)?\b", re.IGNORECASE)),
+AI_ACT_CONTEXT = """\
+EU AI Act context for this POC:
+- Article 3 defines biometric identification as automated recognition of human features to establish identity by comparing biometric data to stored biometric data.
+- Article 3 defines biometric verification as one-to-one identity confirmation against previously provided biometric data.
+- Article 3 defines emotion recognition as identifying or inferring emotions or intentions on the basis of biometric data.
+- Article 3 defines biometric categorisation as assigning natural persons to categories on the basis of biometric data.
+- Annex III lists remote biometric identification, sensitive/protected biometric categorisation, and emotion recognition as high-risk biometric AI areas where permitted by law.
+- Article 5 prohibits some biometric uses, including untargeted scraping to build facial recognition databases, workplace/education emotion inference except medical or safety uses, and biometric categorisation to infer listed sensitive traits.
+- Article 50 requires deployers of emotion recognition or biometric categorisation systems to inform exposed persons.
+
+Positive examples for this POC:
+- webcam/video/image/audio/voice input used to infer emotion, stress, mood, intent, or affect;
+- face embeddings, face_recognition, face-api, Rekognition, Azure Face, DeepFace, dlib, OpenCV face detection, or facial landmark code used for matching or identification;
+- fingerprint, iris, retina, voiceprint, gait, liveness, or other biometric-template matching;
+- age, sex, ethnicity, race, disability, health, political, religious, sexual orientation, or similar categories inferred from face, voice, gait, or other biometric data.
+
+Negative examples that should not trigger biometric AI Act remediation by themselves:
+- text-only sentiment analysis of chats, emails, support tickets, or relationship messages;
+- product copy that says emotional, emotion, face a consequence, interface, or user-facing;
+- one-to-one biometric login verification where the sole purpose is confirming the claimed user identity, unless other biometric categorisation or identification signals appear.
+"""
+
+BIOMETRIC_EVIDENCE_PATTERNS: Sequence[Tuple[str, str, re.Pattern[str]]] = (
+    (
+        "face recognition",
+        "biometric identification or verification",
+        re.compile(r"\bface[-_\s]?recognition\b|\bcompare_faces\b|\bface_encodings?\b", re.IGNORECASE),
+    ),
+    (
+        "facial recognition",
+        "biometric identification or verification",
+        re.compile(r"\bfacial[-_\s]?recognition\b", re.IGNORECASE),
+    ),
+    (
+        "face biometric workflow",
+        "biometric identification or verification",
+        re.compile(
+            r"\bface[-_\s]?(?:detect(?:or|ion)?|match(?:ing)?|verification|verify|identify|identification|embedding|landmark|liveness|login|auth)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    ("fingerprint", "biometric identification or verification", re.compile(r"\bfingerprints?\b", re.IGNORECASE)),
+    ("iris", "biometric identification or verification", re.compile(r"\biris\b", re.IGNORECASE)),
+    ("retina", "biometric identification or verification", re.compile(r"\bretina(?:l)?\b", re.IGNORECASE)),
+    ("voiceprint", "biometric identification or verification", re.compile(r"\bvoice\s*prints?\b|\bvoiceprints?\b", re.IGNORECASE)),
+    ("gait", "biometric identification or verification", re.compile(r"\bgait\b", re.IGNORECASE)),
+    ("biometric", "biometric identification, categorisation, or verification", re.compile(r"\bbiometrics?\b", re.IGNORECASE)),
+    ("Rekognition", "biometric identification or verification", re.compile(r"\brekognition\b", re.IGNORECASE)),
+    ("Azure Face", "biometric identification or verification", re.compile(r"\bazure\s+face\b", re.IGNORECASE)),
+    ("DeepFace", "biometric identification or verification", re.compile(r"\bdeepface\b", re.IGNORECASE)),
+    ("dlib", "biometric identification or verification", re.compile(r"\bdlib\b", re.IGNORECASE)),
+    ("OpenCV", "possible biometric image processing", re.compile(r"\bopencv\b|\bcv2\b|\bCascadeClassifier\b|\bdetectMultiScale\b", re.IGNORECASE)),
+    ("face-api", "biometric identification or verification", re.compile(r"\bface-api(?:\.js)?\b", re.IGNORECASE)),
+)
+
+EMOTION_WITH_BIOMETRIC_INPUT_PATTERNS: Sequence[Tuple[str, str, re.Pattern[str]]] = (
+    (
+        "emotion recognition from biometric input",
+        "emotion recognition on biometric data",
+        re.compile(
+            r"\b(?:emotion|affect|mood|stress|intent(?:ion)?)\b.{0,80}\b(?:face|facial|camera|webcam|video|voice|audio|biometric)\b"
+            r"|\b(?:face|facial|camera|webcam|video|voice|audio|biometric)\b.{0,80}\b(?:emotion|affect|mood|stress|intent(?:ion)?)\b",
+            re.IGNORECASE,
+        ),
+    ),
+)
+
+CONTEXTUAL_EMOTION_PATTERNS: Sequence[Tuple[str, str, re.Pattern[str]]] = (
+    (
+        "emotion signal near biometric processing",
+        "emotion recognition on biometric data",
+        re.compile(r"\bemotion(?:al)?\b|\baffect\b|\bmood\b|\bstress\b|\bintent(?:ion)?\b", re.IGNORECASE),
+    ),
+)
+
+BIOMETRIC_INPUT_CONTEXT_PATTERNS: Sequence[re.Pattern[str]] = (
+    re.compile(r"\bwebcam\b|\bcamera\b|\bvideo\b|\baudio\b|\bvoice\b|\bfacial\b|\bbiometric\b", re.IGNORECASE),
 )
 
 REQUIRED_DOCUMENTS = [
@@ -102,6 +163,11 @@ REQUIRED_DOCUMENTS = [
     "Fundamental rights impact assessment or documented rationale for why one is not required",
     "Technical documentation for model purpose, inputs, outputs, and risk controls",
     "Human oversight, logging, monitoring, and incident-response notes",
+]
+
+NO_TRIGGER_DOCUMENTS = [
+    "No biometric-specific AI Act document is required by this POC result.",
+    "Optionally record a short out-of-scope rationale if the repo performs text-only sentiment or relationship analysis.",
 ]
 
 
@@ -138,6 +204,43 @@ def iter_source_files(repo_path: Path, max_chars: int = 200_000) -> Iterable[Pat
             yield path
 
 
+def make_signal_match(
+    line_no: int,
+    label: str,
+    concept: str,
+    line: str,
+    basis: str,
+) -> Dict[str, object]:
+    return {
+        "line": line_no,
+        "term": label,
+        "ai_act_concept": concept,
+        "basis": basis,
+        "snippet": line.strip()[:240],
+    }
+
+
+def collect_pattern_matches(
+    lines: Sequence[str],
+    patterns: Sequence[Tuple[str, str, re.Pattern[str]]],
+    basis: str,
+    max_matches: int,
+) -> List[Dict[str, object]]:
+    matches: List[Dict[str, object]] = []
+    for line_no, line in enumerate(lines, 1):
+        for label, concept, pattern in patterns:
+            if pattern.search(line):
+                matches.append(make_signal_match(line_no, label, concept, line, basis))
+                break
+        if len(matches) >= max_matches:
+            break
+    return matches
+
+
+def has_biometric_input_context(lines: Sequence[str]) -> bool:
+    return any(pattern.search(line) for line in lines for pattern in BIOMETRIC_INPUT_CONTEXT_PATTERNS)
+
+
 def find_biometric_signals(repo_path: Path, max_matches_per_file: int = 8) -> List[Dict[str, object]]:
     signals: List[Dict[str, object]] = []
     repo_path = repo_path.resolve()
@@ -148,26 +251,72 @@ def find_biometric_signals(repo_path: Path, max_matches_per_file: int = 8) -> Li
         except OSError:
             continue
 
-        matches: List[Dict[str, object]] = []
-        for line_no, line in enumerate(text.splitlines(), 1):
-            for label, pattern in BIOMETRIC_PATTERNS:
-                if pattern.search(line):
-                    matches.append(
-                        {
-                            "line": line_no,
-                            "term": label,
-                            "snippet": line.strip()[:240],
-                        }
-                    )
-                    break
-            if len(matches) >= max_matches_per_file:
-                break
+        lines = text.splitlines()
+        direct_matches = collect_pattern_matches(
+            lines,
+            BIOMETRIC_EVIDENCE_PATTERNS,
+            "direct biometric-data processing signal",
+            max_matches_per_file,
+        )
+        emotion_biometric_matches = collect_pattern_matches(
+            lines,
+            EMOTION_WITH_BIOMETRIC_INPUT_PATTERNS,
+            "emotion inference tied to biometric input on the same line",
+            max_matches_per_file,
+        )
+        matches = direct_matches + emotion_biometric_matches
+
+        if direct_matches and len(matches) < max_matches_per_file:
+            contextual_matches = collect_pattern_matches(
+                lines,
+                CONTEXTUAL_EMOTION_PATTERNS,
+                "emotion-related term appears in a file with biometric-data processing",
+                max_matches_per_file - len(matches),
+            )
+            matches.extend(contextual_matches)
+
+        if not direct_matches and not emotion_biometric_matches and has_biometric_input_context(lines):
+            contextual_matches = collect_pattern_matches(
+                lines,
+                CONTEXTUAL_EMOTION_PATTERNS,
+                "emotion-related term appears in a file with camera, video, audio, voice, facial, or biometric input context",
+                max_matches_per_file,
+            )
+            matches.extend(contextual_matches)
+
+        matches = matches[:max_matches_per_file]
 
         if matches:
             rel = path.relative_to(repo_path)
             signals.append({"file": normalize_rel_path(rel), "matches": matches})
 
     return signals
+
+
+def infer_required_documents(signals: List[Dict[str, object]]) -> List[str]:
+    if signals:
+        return REQUIRED_DOCUMENTS
+    return NO_TRIGGER_DOCUMENTS
+
+
+def infer_suspected_triggers(signals: List[Dict[str, object]]) -> List[str]:
+    if not signals:
+        return []
+
+    triggers = set()
+    for item in signals:
+        for match in item["matches"]:
+            concept = str(match.get("ai_act_concept", ""))
+            if "emotion recognition" in concept:
+                triggers.add("emotion recognition on biometric data")
+            elif "categorisation" in concept or "categorization" in concept:
+                triggers.add("biometric categorisation")
+            elif "verification" in concept:
+                triggers.add("biometric identification or verification review")
+            else:
+                triggers.add("biometric identification or categorisation review")
+
+    return sorted(triggers)
 
 
 def build_report(repo_path: Path, signals: List[Dict[str, object]]) -> Dict[str, object]:
@@ -182,13 +331,10 @@ def build_report(repo_path: Path, signals: List[Dict[str, object]]) -> Dict[str,
             "files_with_biometric_signals": len(signals),
             "total_signal_lines": sum(len(item["matches"]) for item in signals),
         },
-        "suspected_ai_act_triggers": [
-            "biometric identification",
-            "biometric categorization",
-            "emotion recognition",
-        ],
-        "required_documents": REQUIRED_DOCUMENTS,
+        "suspected_ai_act_triggers": infer_suspected_triggers(signals),
+        "required_documents": infer_required_documents(signals),
         "signals": signals,
+        "ai_act_context": AI_ACT_CONTEXT,
         "disclaimer": (
             "This POC reports possible compliance triggers from source-code signals. "
             "It is not a legal conclusion and requires review by qualified counsel or a DPO."
@@ -213,17 +359,24 @@ def render_report_markdown(report: Dict[str, object]) -> str:
     ]
     for trigger in report["suspected_ai_act_triggers"]:
         lines.append(f"- {trigger}")
+    if not report["suspected_ai_act_triggers"]:
+        lines.append("- No biometric AI Act trigger found by this POC.")
     lines.extend(["", "## Required documents", ""])
     for doc in report["required_documents"]:
         lines.append(f"- {doc}")
+    lines.extend(["", "## Classification context", "", AI_ACT_CONTEXT.strip(), ""])
     lines.extend(["", "## Evidence", ""])
     if not signals:
-        lines.append("No biometric prefilter signals were found.")
+        lines.append("No biometric prefilter signals were found. Text-only emotional or sentiment analysis is outside this biometric POC unless it is tied to biometric data such as face, voice, video, or other biometric inputs.")
     for item in signals:
         lines.append(f"### `{item['file']}`")
         lines.append("")
         for match in item["matches"]:
-            lines.append(f"- Line {match['line']} `{match['term']}`: `{match['snippet']}`")
+            concept = match.get("ai_act_concept", "possible AI Act biometric signal")
+            basis = match.get("basis", "source-code signal")
+            lines.append(
+                f"- Line {match['line']} `{match['term']}` ({concept}; {basis}): `{match['snippet']}`"
+            )
         lines.append("")
     lines.extend(["## Review note", "", str(report["disclaimer"]), ""])
     return "\n".join(lines)
@@ -239,10 +392,14 @@ def render_required_actions(report: Dict[str, object]) -> str:
         "",
     ]
     for doc in report["required_documents"]:
-        lines.append(f"- Create or update: {doc}.")
+        if report["signals"]:
+            lines.append(f"- Create or update: {doc}.")
+        else:
+            lines.append(f"- {doc}")
     lines.extend(
         [
-            "- Confirm whether the biometric processing identifies people, categorizes people, or infers emotion.",
+            "- Confirm whether any flagged processing identifies people, categorizes people, or infers emotion from biometric data.",
+            "- Do not classify text-only sentiment or relationship analysis as biometric emotion recognition unless it uses biometric input.",
             "- Confirm whether the system is used in a prohibited, high-risk, limited-risk, or out-of-scope context.",
             "- Record the reviewer, date, decision, and rationale before merging related code.",
             "",
@@ -260,7 +417,15 @@ def build_planning_prompt(report: Dict[str, object]) -> str:
     return f"""\
 You are OpenCode running in a repository. Do not edit files in this step.
 
-We are building a compliance POC for EU AI Act biometric risk. The scanner found these possible biometric source-code signals:
+We are building a compliance POC for EU AI Act biometric risk.
+
+Use this classification context:
+
+```text
+{AI_ACT_CONTEXT.strip()}
+```
+
+The scanner found these possible biometric source-code signals:
 
 ```json
 {signals_json}
@@ -269,11 +434,20 @@ We are building a compliance POC for EU AI Act biometric risk. The scanner found
 Create a concise, decision-complete remediation plan for this repository.
 
 The plan must:
-- identify whether the code may involve biometric identification, biometric categorization, or emotion recognition;
-- list the minimum code or documentation changes needed for a POC;
-- avoid broad refactors;
-- preserve existing application behavior where possible;
-- include manual legal/compliance review steps.
+- start by saying whether the evidence is likely in scope or likely out of scope for this biometric POC;
+- identify whether the code may involve biometric identification, biometric categorisation, biometric verification, or emotion recognition on biometric data;
+- explicitly explain if a finding is only text sentiment, relationship analysis, or product copy and therefore not biometric emotion recognition by itself;
+- list the minimum code or documentation changes needed for a POC only when the evidence is plausibly in scope;
+- avoid broad refactors and preserve existing application behavior where possible;
+- include manual legal/compliance review steps and the exact open questions a reviewer must answer.
+
+Use these examples to calibrate:
+- In scope: `face_recognition.compare_faces(frame, known_faces)` because it compares face biometric data to templates.
+- In scope: `emotionModel.predict(webcamFrame)` because emotion is inferred from image/video biometric input.
+- In scope: `voiceStressClassifier(audioStream)` when used to infer mood or intent from voice characteristics.
+- Needs careful review: `biometricLogin.verify(userId, fingerprint)` may be one-to-one verification and can be outside Annex III high-risk if the sole purpose is confirming the claimed identity.
+- Out of scope for this biometric POC: `analyze WhatsApp messages for emotional dynamics` because the input is text, not biometric data.
+- Out of scope for this biometric POC: strings such as `face the consequences`, `interface`, or `emotional intimacy`.
 
 Return Markdown only.
 """
@@ -295,6 +469,8 @@ Rules:
 - Do not delete or rename files.
 - Do not run destructive commands.
 - Preserve existing behavior unless the remediation plan explicitly requires a small guard, notice, or review workflow.
+- If the report says no biometric prefilter signals were found, do not invent code changes; update only compliance notes if needed.
+- Do not treat text-only sentiment analysis, relationship analysis, or product copy as biometric emotion recognition unless biometric input such as face, voice, video, audio, gait, fingerprint, iris, or retina is involved.
 - If the repository shape is unclear, add explicit compliance TODOs or metadata instead of inventing a large framework-specific integration.
 
 After editing files, print a short summary of changed files and why.

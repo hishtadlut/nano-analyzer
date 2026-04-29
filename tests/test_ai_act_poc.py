@@ -28,7 +28,37 @@ class AiActPocTests(unittest.TestCase):
             signals = ai_act_poc.find_biometric_signals(repo)
 
             self.assertEqual([item["file"] for item in signals], ["app/risk.py"])
-            self.assertEqual(signals[0]["matches"][0]["term"], "face")
+            self.assertEqual(signals[0]["matches"][0]["term"], "face recognition")
+            self.assertEqual(signals[0]["matches"][0]["ai_act_concept"], "biometric identification or verification")
+
+    def test_text_only_emotion_language_is_not_biometric_signal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            (repo / "app").mkdir()
+            (repo / "app" / "copy.tsx").write_text(
+                "const title = 'Emotional intimacy check-in';\n"
+                "const note = 'You may need to face the consequences.';\n"
+                "const klass = 'UserInterface';\n",
+                encoding="utf-8",
+            )
+
+            self.assertEqual(ai_act_poc.find_biometric_signals(repo), [])
+
+    def test_emotion_from_biometric_input_is_signal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            (repo / "app").mkdir()
+            (repo / "app" / "camera_emotion.py").write_text(
+                "frame = webcam.read()\n"
+                "emotion = emotion_model.predict(frame)\n"
+                "result = detect_emotion_from_face(frame)\n",
+                encoding="utf-8",
+            )
+
+            signals = ai_act_poc.find_biometric_signals(repo)
+
+            self.assertEqual([item["file"] for item in signals], ["app/camera_emotion.py"])
+            self.assertEqual(signals[0]["matches"][0]["ai_act_concept"], "emotion recognition on biometric data")
 
     def test_report_generation_writes_expected_artifacts(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -52,9 +82,23 @@ class AiActPocTests(unittest.TestCase):
 
             data = json.loads(paths["json_report"].read_text(encoding="utf-8"))
             self.assertEqual(data["status"], "possible_trigger_found")
+            self.assertIn("ai_act_context", data)
             self.assertIn("Fundamental rights impact assessment", paths["required_actions"].read_text(encoding="utf-8"))
             self.assertTrue(paths["plan"].exists())
             self.assertTrue(paths["pr_body"].exists())
+
+    def test_report_generation_for_no_trigger_result(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            report = ai_act_poc.build_report(repo, [])
+
+            self.assertEqual(report["status"], "no_prefilter_signals")
+            self.assertEqual(report["suspected_ai_act_triggers"], [])
+            self.assertIn("No biometric-specific AI Act document", report["required_documents"][0])
+
+            markdown = ai_act_poc.render_report_markdown(report)
+            self.assertIn("No biometric AI Act trigger found", markdown)
+            self.assertIn("Text-only emotional or sentiment analysis is outside this biometric POC", markdown)
 
     def test_opencode_command_construction(self):
         command = ai_act_poc.build_opencode_command("deepseek/deepseek-v4-pro", "high", "plan this")
