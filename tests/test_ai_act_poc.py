@@ -57,25 +57,43 @@ class AiActPocTests(unittest.TestCase):
             self.assertTrue(paths["pr_body"].exists())
 
     def test_opencode_command_construction(self):
-        command = ai_act_poc.build_opencode_command("deepseek/deepseek-v4-pro", "plan this")
-        self.assertEqual(command, ["opencode", "run", "--model", "deepseek/deepseek-v4-pro", "plan this"])
-
-        dangerous = ai_act_poc.build_opencode_command(
-            "deepseek/deepseek-v4-pro",
-            "implement this",
-            dangerously_skip_permissions=True,
-        )
+        command = ai_act_poc.build_opencode_command("deepseek/deepseek-v4-pro", "high", "plan this")
         self.assertEqual(
-            dangerous,
+            command,
             [
                 "opencode",
                 "run",
                 "--model",
                 "deepseek/deepseek-v4-pro",
+                "--variant",
+                "high",
+                "plan this",
+            ],
+        )
+
+        dangerous = ai_act_poc.build_opencode_command(
+            "deepseek/deepseek-v4-pro",
+            "high",
+            "implement this",
+            dangerously_skip_permissions=True,
+            executable="C:/Users/HP/.opencode/bin/opencode.exe",
+        )
+        self.assertEqual(
+            dangerous,
+            [
+                "C:/Users/HP/.opencode/bin/opencode.exe",
+                "run",
+                "--model",
+                "deepseek/deepseek-v4-pro",
+                "--variant",
+                "high",
                 "--dangerously-skip-permissions",
                 "implement this",
             ],
         )
+
+        no_variant = ai_act_poc.build_opencode_command("deepseek/deepseek-chat", None, "plan")
+        self.assertEqual(no_variant, ["opencode", "run", "--model", "deepseek/deepseek-chat", "plan"])
 
     def test_changed_file_detection_supports_added_and_modified_only(self):
         with tempfile.TemporaryDirectory() as tmp:

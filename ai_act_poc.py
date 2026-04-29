@@ -29,6 +29,7 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 VERSION = "0.1"
 DEFAULT_MODEL = "deepseek/deepseek-v4-pro"
+DEFAULT_VARIANT = "high"
 DEFAULT_BASE_BRANCH = "main"
 DEFAULT_BRANCH_PREFIX = "codex/ai-act-biometric-review"
 GITHUB_API_URL = "https://api.github.com"
@@ -302,23 +303,50 @@ After editing files, print a short summary of changed files and why.
 
 def build_opencode_command(
     model: str,
+    variant: Optional[str],
     prompt: str,
     dangerously_skip_permissions: bool = False,
+    executable: str = "opencode",
 ) -> List[str]:
-    command = ["opencode", "run", "--model", model]
+    command = [executable, "run", "--model", model]
+    if variant:
+        command.extend(["--variant", variant])
     if dangerously_skip_permissions:
         command.append("--dangerously-skip-permissions")
     command.append(prompt)
     return command
 
 
+def resolve_opencode_executable() -> Optional[str]:
+    found = shutil.which("opencode")
+    if found:
+        return found
+
+    windows_home = Path.home() / ".opencode" / "bin" / "opencode.exe"
+    if windows_home.exists():
+        return str(windows_home)
+
+    return None
+
+
 def run_opencode(
     repo_path: Path,
     model: str,
+    variant: Optional[str],
     prompt: str,
     dangerously_skip_permissions: bool = False,
 ) -> str:
-    command = build_opencode_command(model, prompt, dangerously_skip_permissions)
+    executable = resolve_opencode_executable()
+    if executable is None:
+        raise RuntimeError("opencode was not found in PATH or ~/.opencode/bin.")
+
+    command = build_opencode_command(
+        model,
+        variant,
+        prompt,
+        dangerously_skip_permissions,
+        executable=executable,
+    )
     result = subprocess.run(
         command,
         cwd=str(repo_path),
@@ -358,8 +386,8 @@ def validate_runtime_requirements(args: argparse.Namespace) -> None:
     if not args.mock_opencode:
         if not os.environ.get("DEEPSEEK_API_KEY"):
             raise RuntimeError("DEEPSEEK_API_KEY is required unless --mock-opencode is used.")
-        if shutil.which("opencode") is None:
-            raise RuntimeError("opencode was not found in PATH. Install and configure OpenCode first.")
+        if resolve_opencode_executable() is None:
+            raise RuntimeError("opencode was not found in PATH or ~/.opencode/bin. Install and configure OpenCode first.")
 
     if args.create_pr and not args.dry_run:
         if not args.github_repo:
@@ -674,7 +702,7 @@ def run_poc(args: argparse.Namespace) -> int:
         plan_markdown = mock_opencode_output("plan")
     else:
         print("Calling OpenCode planning pass...")
-        plan_markdown = run_opencode(repo_path, args.model, planning_prompt)
+        plan_markdown = run_opencode(repo_path, args.model, args.variant, planning_prompt)
     paths = generate_compliance_files(repo_path, report, plan_markdown=plan_markdown)
     print(f"Generated OpenCode plan: {paths['plan']}")
 
@@ -689,6 +717,7 @@ def run_poc(args: argparse.Namespace) -> int:
         implementation_output = run_opencode(
             repo_path,
             args.model,
+            args.variant,
             implementation_prompt,
             dangerously_skip_permissions=True,
         )
@@ -751,6 +780,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--base-branch", default=DEFAULT_BASE_BRANCH, help="Base branch for the generated PR")
     parser.add_argument("--branch-prefix", default=DEFAULT_BRANCH_PREFIX, help="Generated PR branch prefix")
     parser.add_argument("--model", default=DEFAULT_MODEL, help=f"OpenCode model (default: {DEFAULT_MODEL})")
+    parser.add_argument("--variant", default=DEFAULT_VARIANT, help=f"OpenCode model variant/reasoning effort (default: {DEFAULT_VARIANT})")
     parser.add_argument("--create-pr", action="store_true", help="Create a draft GitHub PR")
     parser.add_argument("--dry-run", action="store_true", help="Generate files locally but skip GitHub PR creation")
     parser.add_argument("--mock-opencode", action="store_true", help="Skip OpenCode calls and use deterministic mock output")
